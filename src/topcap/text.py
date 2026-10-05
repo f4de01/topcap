@@ -43,6 +43,20 @@ CONTEXT_HINT = """
 {context}
 """
 
+# 字幕拼出来的文本一个标点都没有。只说"补全缺失的标点"模型会把它当成"逐字输出"的例外而原样返回，
+# 必须单独点明：这段没有标点，加标点是本次任务的一部分，不算改写。
+NO_PUNCT_HINT = """
+注意：下面这段文本完全没有标点。请按口语的停顿为它补上逗号、句号、问号，这是必须做的，不算改写。
+补标点之外仍然一个字都不要增删。
+"""
+
+_SENTENCE_PUNCT = re.compile(r"[，。！？；,.!?;]")
+
+
+def lacks_punctuation(text: str, per_chars: int = 40) -> bool:
+    """平均每 per_chars 个实字不到一个句读标点，就算没有标点。"""
+    return content_len(text) / max(len(_SENTENCE_PUNCT.findall(text)), 1) > per_chars
+
 SEGMENT_PROMPT = """请为下面这段文本划分自然段落。
 
 不要输出文本本身。只输出每个新段落**开头的前 8 个字**，一行一个，不加编号和引号。
@@ -232,10 +246,11 @@ class LLM:
 def correct(text: str, llm: LLM, report: PolishReport, context: str = "") -> str:
     """纠错。守卫：某块长度变化超阈值就丢弃这块的改写，回退原文。"""
     hint = CONTEXT_HINT.format(context=context) if context else ""
-    prompt = CORRECT_PROMPT.format(context=hint)
 
     def fix(chunk: str) -> tuple[str, str]:
         """返回 (结果, 状态)。状态：ok / rejected / failed。"""
+        extra = NO_PUNCT_HINT if lacks_punctuation(chunk) else ""
+        prompt = CORRECT_PROMPT.format(context=hint + extra)
         try:
             fixed = llm.complete(prompt + chunk)
         except Exception:
@@ -255,9 +270,22 @@ def correct(text: str, llm: LLM, report: PolishReport, context: str = "") -> str
     return "".join(out)
 
 
+_PUNCT = re.compile(r"[\s，。！？、；：“”‘’（）《》〈〉【】…—,.!?;:\"'()\[\]<>\-·]+")
+
+
+def content_len(text: str) -> int:
+    """去掉标点和空白后的字数。纠错允许补标点，所以守卫只盯实字。"""
+    return len(_PUNCT.sub("", text))
+
+
 def guard_correction(original: str, fixed: str, tolerance: float = LENGTH_TOLERANCE) -> tuple[str, bool]:
-    """返回 (采用的文本, 是否被拦下)。纯函数，便于测试。"""
-    delta = abs(len(fixed) - len(original)) / max(len(original), 1)
+    """返回 (采用的文本, 是否被拦下)。纯函数，便于测试。
+
+    比的是实字数而不是总长度：字幕拼接出来的文本一个标点都没有，补齐标点会让总长度
+    涨一到两成，按总长度算会把正常的纠错全拦下。改写、删重复、压缩都会改变实字数，照样拦。
+    """
+    base = content_len(original)
+    delta = abs(content_len(fixed) - base) / max(base, 1)
     if not fixed or delta > tolerance:
         return original, True
     return fixed, False

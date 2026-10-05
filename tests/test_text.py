@@ -39,3 +39,20 @@ def test_chunks_hard_splits_text_without_punctuation():
     out = chunks(text, size=1200)
     assert "".join(out) == text
     assert max(len(c) for c in out) <= 1200
+
+
+def test_guard_allows_punctuation_only_changes():
+    original = "没有啊豆包已经变成了能用你的电脑干活的豆包员工了如果你还在把它当普通对话"
+    fixed = "没有啊，豆包已经变成了能用你的电脑干活的豆包员工了。如果你还在把它当普通对话，"
+    assert guard_correction(original, fixed) == (fixed, False)
+
+
+def test_guard_still_rejects_compression_with_punctuation():
+    original = "没有啊豆包已经变成了能用你的电脑干活的豆包员工了如果你还在把它当普通对话"
+    assert guard_correction(original, "豆包已经变成了员工。")[1] is True
+
+
+def test_lacks_punctuation_detector():
+    from topcap.text import lacks_punctuation
+    assert lacks_punctuation("没有啊豆包已经变成了能用你的电脑干活的豆包员工了如果你还在把它当普通对话AI基本上只发挥了它两成的能力所以点好收藏关注")
+    assert not lacks_punctuation("今天讲三件事。第一件事是咖啡，第二件是茶。最后说水。")
