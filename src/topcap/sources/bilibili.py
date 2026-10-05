@@ -18,6 +18,7 @@ USER_POSTS_APP = "/api/v1/bilibili/app/fetch_user_videos"
 USER_POSTS_WEB = "/api/v1/bilibili/web/fetch_user_post_videos"
 
 HEADERS = {"Referer": "https://www.bilibili.com/"}
+SUBTITLE_TRIES = 3
 
 # upos 地址可以换 CDN 厂商：同一个 path 换 host 就是同一个文件的另一个来源。
 # B站原生只给 2 个地址，一个被限速就没得换；实测这些镜像 Content-Length 一致，可跨镜像续传。
@@ -146,11 +147,17 @@ class Bilibili:
         aid = getattr(cand, "_aid", None) or _aid_of(client, cand)
         texts: list[str] = []
         for part in cand.parts:
-            try:
-                payload = client.get(SUBTITLE, a_id=aid, c_id=part.cid)
-            except TikHubError:
-                return None
-            text = extract_subtitle_text(payload, _fetch_json)
+            text = None
+            # 实测这个接口会间歇性返回 200 但字幕为空，同一视频连打三次能出现一次空。
+            # 多试两次再认定"没有字幕"，每次 0.001 美元，比白跑一次转写便宜得多。
+            for _ in range(SUBTITLE_TRIES):
+                try:
+                    payload = client.get(SUBTITLE, a_id=aid, c_id=part.cid)
+                except TikHubError:
+                    continue
+                text = extract_subtitle_text(payload, _fetch_json)
+                if text:
+                    break
             if not text:
                 return None
             texts.append(text)

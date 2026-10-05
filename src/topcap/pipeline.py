@@ -81,11 +81,12 @@ def _raw_parts(ctx: Context, cand: Candidate) -> tuple[list[str], str]:
     cand = refresh_media(ctx.client, cand)
     if not cand.parts:
         raise RuntimeError("取不到分 P 信息")
-    if ctx.use_subtitle:
+    if ctx.use_subtitle and cand.source == "B站":
         ctx.stage("查字幕")
         texts = REGISTRY[cand.source].subtitles(ctx.client, cand)
         if texts:
             return texts, "subtitle"
+        ctx.say("    没有 CC 字幕，改走本地转写")
     return [_transcribe_part(ctx, cand, p, n) for n, p in enumerate(cand.parts, start=1)], "asr"
 
 
