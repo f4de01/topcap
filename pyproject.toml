@@ -1,0 +1,60 @@
+[project]
+name = "topcap"
+version = "2.0.0a1"
+description = "把抖音、B站视频批量转成完整文案的 Markdown，直接归档进 Obsidian。本地语音识别，agent skill + CLI。"
+readme = "README.md"
+license = "MIT"
+requires-python = ">=3.12"
+authors = [{ name = "loong" }]
+keywords = ["douyin", "bilibili", "asr", "transcription", "sensevoice", "obsidian", "tikhub", "agent-skills", "claude-code"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Environment :: Console",
+    "Intended Audience :: End Users/Desktop",
+    "Natural Language :: Chinese (Simplified)",
+    "Operating System :: Microsoft :: Windows",
+    "Operating System :: MacOS",
+    "Operating System :: POSIX :: Linux",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+    "Topic :: Multimedia :: Sound/Audio :: Speech",
+    "Topic :: Text Processing :: Markup :: Markdown",
+]
+dependencies = [
+    "httpx>=0.27",
+    "typer>=0.15",
+    "rich>=13",
+    # sherpa-onnx 与 sherpa-onnx-core 必须同版本（后者装 onnxruntime 等原生库）。
+    # 部分镜像站的元数据丢了这条依赖，所以这里显式写出并锁同一版本。
+    "sherpa-onnx==1.13.8",
+    "sherpa-onnx-core==1.13.8",
+    "av>=13",
+    "numpy>=1.26",
+    "opencc-python-reimplemented>=0.1.7",
+]
+
+[project.urls]
+Homepage = "https://github.com/f4de01/topcap"
+Repository = "https://github.com/f4de01/topcap"
+Issues = "https://github.com/f4de01/topcap/issues"
+
+[project.scripts]
+topcap = "topcap.cli:app"
+
+[dependency-groups]
+dev = ["pytest>=8"]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/topcap"]
+
+[tool.hatch.build.targets.sdist]
+include = ["src/topcap", "skills", "README.md", "README.en.md", "LICENSE"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
